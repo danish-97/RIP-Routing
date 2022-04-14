@@ -4,9 +4,11 @@ import sys
 
 inputPorts = []
 outputPorts = []
+router_id = 1
 
 
 def open_file():
+    """Reads the content of the file and formats it into a table"""
     with open('config_file_1') as f:
         contents = f.readlines()
         routerIdRaw = contents[0]
@@ -28,7 +30,7 @@ def open_file():
                 inputPorts.append(inputPortsList[i])
 
         if len(inputPorts) > len(set(inputPorts)):
-            print("ERROR: Every port number must be unique")
+            print("ERROR: Every input port number must be unique")
             exit()
 
         for j in range(1, len(outputPortsList)):
@@ -44,7 +46,7 @@ def open_file():
             table[int(output[2])] = [int(output[1]), int(output[2]), flag, timer, garbageTime]
 
         if len(outputPorts) > len(set(outputPorts)):
-            print("ERROR: Every port number must be unique")
+            print("ERROR: Every output port number must be unique")
             exit()
 
         for i in range(0, len(inputPorts)):
@@ -56,7 +58,24 @@ def open_file():
         return table
 
 
+def create_packet(table, router_id):
+    """The header of the RIP packet"""
+    command = 2
+    version = 2
+    zeroField = router_id
+    entry = []
+    header = [command, version, zeroField]
+    for i in table.keys():
+        cost = table[i][0]
+        entry.append((i, cost))
+    packet = {"Header": header, "Entry": entry}
+    return packet
+
+
 def main():
+    test = open_file()
+    create_packet(test, router_id)
+    print(create_packet(test, router_id))
     print(open_file())
 
 
