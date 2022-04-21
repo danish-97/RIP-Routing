@@ -1,5 +1,5 @@
 """Implementing a RIP routing protocol"""
-
+import socket
 import sys
 
 inputPorts = []
@@ -72,11 +72,48 @@ def create_packet(table, router_id):
     return packet
 
 
+def check_packet_entry(packet):
+    """Check the packet entry format is as it should be"""
+    checkEntry = True
+    for entry in packet['entry']:
+        if int(entry[1]) > 16:
+            checkEntry = False
+        elif int(entry[0]) < 1 or int(entry[0]) > 64000:
+            checkEntry = False
+    return checkEntry
+
+
+def main_loop(table, packet):
+    """Implement a loop which create a packet for each router and sends its information to the neighbouring routers"""
+
+
+def open_socket(input_ports):
+    """Opens a socket for every input port"""
+    socket_table = []
+    for inputSocket in input_ports:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.bind(("127.0.0.1", int(inputSocket)))
+            socket_table.append(sock)
+        except OSError:
+            print("Socket bind unsuccessful\n")
+            exit()
+    return socket_table
+
+
+def close_socket(socket_table):
+    try:
+        for entry in socket_table:
+            entry.close()
+    except OSError:
+        print("Socket close failed\n")
+        exit()
+
+
 def main():
     test = open_file()
-    create_packet(test, router_id)
     print(create_packet(test, router_id))
-    print(open_file())
+    print(test)
 
 
 main()
