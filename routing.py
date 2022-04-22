@@ -44,6 +44,8 @@ def open_file():
             timer = 0
             garbageTime = 0
             table[int(output[2])] = [int(output[1]), int(output[2]), flag, timer, garbageTime]
+            # output[1] = metric/cost
+            # output[2] = destination id
 
         if len(outputPorts) > len(set(outputPorts)):
             print("ERROR: Every output port number must be unique")
@@ -108,6 +110,14 @@ def close_socket(socket_table):
     except OSError:
         print("Socket close failed\n")
         exit()
+
+
+def split_horizon(table, neighbour_id):
+    """Implement split horizon poison reverse to prevent the occurrence of routing loops"""
+    for destination, info in table.items():
+        if destination == neighbour_id:
+            info[0] = 16
+    return table
 
 
 def main():
