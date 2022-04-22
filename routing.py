@@ -1,10 +1,12 @@
 """Implementing a RIP routing protocol"""
+
 import socket
 import sys
 
 inputPorts = []
 outputPorts = []
 router_id = 1
+INFINITY = 16
 
 
 def open_file():
@@ -60,7 +62,7 @@ def open_file():
         return table
 
 
-def create_packet(table, router_id):
+def create_packet(table):
     """The header of the RIP packet"""
     command = 2
     version = 2
@@ -116,14 +118,25 @@ def split_horizon(table, neighbour_id):
     """Implement split horizon poison reverse to prevent the occurrence of routing loops"""
     for destination, info in table.items():
         if destination == neighbour_id:
-            info[0] = 16
+            info[0] = INFINITY
     return table
+
+
+def print_routing_table(table):
+    """Prints routing table in pretty format"""
+    print("--" * 40)
+    print("Routing table for router {}".format(router_id))
+    for key, data in table.items():
+        print("Destination: {}  Metric: {}  Next Hop: {}  Timer: {}  Garbage Timer: {}".format(key, data[0], data[1],
+                                                                                               data[3], data[4]))
+    print("--" * 40)
 
 
 def main():
     test = open_file()
-    print(create_packet(test, router_id))
+    print(create_packet(test))
     print(test)
+    print_routing_table(test)
 
 
 main()
