@@ -132,6 +132,22 @@ def print_routing_table(table):
     print("--" * 40)
 
 
+# def update_routing_table(table):
+#     """Main loop for distance vector algorithm, updating routing table"""
+#
+#     # send routing information (destination and distance to the destination) to neighbour
+#
+#     # Check information from neighbour 'G'
+#         # Add cost associated with G, call result 'D'
+#         # Compare result distance with current entry in table
+#             # If distance D is smaller than current distance update table entry to have new metric 'D'
+#
+#
+#     for id, path in table.items():
+#         if id in
+
+
+
 def main():
     test = open_file()
     print(create_packet(test))
