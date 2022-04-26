@@ -87,10 +87,6 @@ def check_packet_entry(packet):
     return checkEntry
 
 
-def main_loop(table, packet):
-    """Implement a loop which create a packet for each router and sends its information to the neighbouring routers"""
-
-
 def open_socket(input_ports):
     """Opens a socket for every input port"""
     socket_table = []
@@ -132,19 +128,33 @@ def print_routing_table(table):
     print("--" * 40)
 
 
-# def update_routing_table(table):
-#     """Main loop for distance vector algorithm, updating routing table"""
-#
-#     # send routing information (destination and distance to the destination) to neighbour
-#
-#     # Check information from neighbour 'G'
-#         # Add cost associated with G, call result 'D'
-#         # Compare result distance with current entry in table
-#             # If distance D is smaller than current distance update table entry to have new metric 'D'
-#
-#
-#     for id, path in table.items():
-#         if id in
+def update_routing_table(table, packet):
+    """Implement a loop which create a packet for each router and sends its information to the neighbouring routers"""
+
+    # send routing information (destination and distance to the destination) to neighbour
+
+    # Check information from neighbour 'G'
+    # Add cost associated with G, call result 'D'
+    # Compare result distance with current entry in table
+    # If distance D is smaller than current distance update table entry to have new metric 'D'
+    # If G' is the router from which the existing router came, then use new metric even if it is larger than the old one
+    current = router_id
+    neighbours = []
+    for entry in packet['entry']:
+        neighbours.append(entry[0])
+
+    for neighbour in range(len(neighbours)):
+        if neighbours[neighbour] == router_id:
+            for entry in packet['entry']:
+                if packet['entry'][entry][0] == router_id:
+                    table[current] = [packet['entry'][entry][1], current, False, 0, 0] # Used new metric even if it is larger than the old one
+        else:
+            cost = min(packet['entry'][neighbour][1] + table[current][0], 16) # Adding the cost associated with neighbour
+            if cost < table[current][0]: # Compare result distance with current entry in the table
+                table[current][0] = cost # Since distance is smaller than current distance, new metric is the distance
+            else:
+                continue
+    return table
 
 
 
