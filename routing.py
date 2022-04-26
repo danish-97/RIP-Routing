@@ -1,6 +1,7 @@
 """Implementing a RIP routing protocol"""
 
 import socket
+import json
 import sys
 
 inputPorts = []
@@ -118,16 +119,6 @@ def split_horizon(table, neighbour_id):
     return table
 
 
-def print_routing_table(table):
-    """Prints routing table in pretty format"""
-    print("--" * 40)
-    print("Routing table for router {}".format(router_id))
-    for key, data in table.items():
-        print("Destination: {}  Metric: {}  Next Hop: {}  Timer: {}  Garbage Timer: {}".format(key, data[0], data[1],
-                                                                                               data[3], data[4]))
-    print("--" * 40)
-
-
 def update_routing_table(table, packet):
     """Implement a loop which create a packet for each router and sends its information to the neighbouring routers"""
 
@@ -149,13 +140,30 @@ def update_routing_table(table, packet):
                 if packet['entry'][entry][0] == router_id:
                     table[current] = [packet['entry'][entry][1], current, False, 0, 0] # Used new metric even if it is larger than the old one
         else:
-            cost = min(packet['entry'][neighbour][1] + table[current][0], 16) # Adding the cost associated with neighbour
+            cost = min(packet['entry'][neighbour][1] + table[current][0], INFINITY) # Adding the cost associated with neighbour
             if cost < table[current][0]: # Compare result distance with current entry in the table
                 table[current][0] = cost # Since distance is smaller than current distance, new metric is the distance
             else:
                 continue
     return table
 
+
+def send_packet(table):
+    """Sending the UDP datagrams to neighbours"""
+    for outputPort in outputPorts:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.sendto(json.dumps(create_packet(table).encode('ascii')), ("127.0.0.1", outputPort))
+    print("Packet sent successfully!")
+
+
+def print_routing_table(table):
+    """Prints routing table in pretty format"""
+    print("--" * 40)
+    print("Routing table for router {}".format(router_id))
+    for key, data in table.items():
+        print("Destination: {}  Metric: {}  Next Hop: {}  Timer: {}  Garbage Timer: {}".format(key, data[0], data[1],
+                                                                                               data[3], data[4]))
+    print("--" * 40)
 
 
 def main():
