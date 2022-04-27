@@ -91,9 +91,9 @@ def create_packet(table):
 def check_packet_header(packet):
     """Check the packet header format is as it should be"""
     checkHeader = True
-    if int(packet['header'][0]) != 2 or int(packet['header'][1]) != 2:  # Check command and version are 2
+    if int(packet['Header'][0]) != 2 or int(packet['Header'][1]) != 2:  # Check command and version are 2
         checkHeader = False
-    elif int(packet['header'][2]) < 1 or int(packet['header'][2]) > 64000:  # Check header port is within range
+    elif int(packet['Header'][2]) < 1 or int(packet['Header'][2]) > 64000:  # Check header port is within range
         checkHeader = False
     return checkHeader
 
@@ -101,7 +101,7 @@ def check_packet_header(packet):
 def check_packet_entry(packet):
     """Check the packet entry format is as it should be"""
     checkEntry = True
-    for entry in packet['entry']:
+    for entry in packet['Entry']:
         if int(entry[1]) > 16:
             checkEntry = False
         elif int(entry[0]) < 1 or int(entry[0]) > 64000:
@@ -154,17 +154,17 @@ def update_routing_table(table, packet):
     # If G' is the router from which the existing router came, then use new metric even if it is larger than the old one
     current = router_id
     neighbours = []
-    for entry in packet['entry']:
+    for entry in packet['Entry']:
         neighbours.append(entry[0])
 
     for neighbour in range(len(neighbours)):
         if neighbours[neighbour] == router_id:
-            for entry in packet['entry']:
-                if packet['entry'][entry][0] == router_id:
-                    table[current] = [packet['entry'][entry][1], current, False, 0,
+            for entry in range(len(packet['Entry'])):
+                if packet['Entry'][entry][0] == router_id:
+                    table[current] = [packet['Entry'][entry][1], current, False, 0,
                                       0]  # Used new metric even if it is larger than the old one
         else:
-            cost = min(packet['entry'][neighbour][1] + table[current][0],
+            cost = min(packet['Entry'][neighbour][1] + table[current][0],
                        INFINITY)  # Adding the cost associated with neighbour
             if cost < table[current][0]:  # Compare result distance with current entry in the table
                 table[current][0] = cost  # Since distance is smaller than current distance, new metric is the distance
@@ -209,10 +209,11 @@ def response_messages(sockets, timeout, table):
             rec_packet_raw = i.recvfrom(1023)
             message_packet = rec_packet_raw[0].decode('ascii')
             # address_packet = rec_packet_raw[1]
-            valid_header = check_packet_header(message_packet)
-            valid_entry = check_packet_entry(message_packet)
+            message_packet_dict = json.loads(message_packet) # Convert string to dictionary
+            valid_header = check_packet_header(message_packet_dict)
+            valid_entry = check_packet_entry(message_packet_dict)
             if valid_header and valid_entry:
-                packet_table = update_routing_table(table, message_packet)
+                packet_table = update_routing_table(table, message_packet_dict)
             else:
                 print('Dropped invalid packet')
     return packet_table
