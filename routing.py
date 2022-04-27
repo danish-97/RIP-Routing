@@ -2,6 +2,7 @@
 
 import socket
 import json
+import select
 import sys
 
 inputPorts = []
@@ -77,6 +78,17 @@ def create_packet(table):
     return packet
 
 
+def check_packet_header(packet):
+    """Check the packet header format is as it should be"""
+    checkHeader = True
+    header = packet['header']
+    if int(header[0]) != 2 or int(header[1]) != 2:  # Check command and version are 2
+        checkHeader = False
+    elif int(header[2]) < 1 or int(header[2]) > 64000:  # Check header port is within range
+        checkHeader = False
+    return checkHeader
+
+
 def check_packet_entry(packet):
     """Check the packet entry format is as it should be"""
     checkEntry = True
@@ -138,11 +150,13 @@ def update_routing_table(table, packet):
         if neighbours[neighbour] == router_id:
             for entry in packet['entry']:
                 if packet['entry'][entry][0] == router_id:
-                    table[current] = [packet['entry'][entry][1], current, False, 0, 0] # Used new metric even if it is larger than the old one
+                    table[current] = [packet['entry'][entry][1], current, False, 0,
+                                      0]  # Used new metric even if it is larger than the old one
         else:
-            cost = min(packet['entry'][neighbour][1] + table[current][0], INFINITY) # Adding the cost associated with neighbour
-            if cost < table[current][0]: # Compare result distance with current entry in the table
-                table[current][0] = cost # Since distance is smaller than current distance, new metric is the distance
+            cost = min(packet['entry'][neighbour][1] + table[current][0],
+                       INFINITY)  # Adding the cost associated with neighbour
+            if cost < table[current][0]:  # Compare result distance with current entry in the table
+                table[current][0] = cost  # Since distance is smaller than current distance, new metric is the distance
             else:
                 continue
     return table
@@ -164,6 +178,44 @@ def print_routing_table(table):
         print("Destination: {}  Metric: {}  Next Hop: {}  Timer: {}  Garbage Timer: {}".format(key, data[0], data[1],
                                                                                                data[3], data[4]))
     print("--" * 40)
+
+
+def response_messages(sockets, timeout, table):
+    """Processes the response messages for the packet received"""
+
+    # Reasons for response to be received:
+    # - Response to specific query
+    # - Regular update
+    # - Triggered update caused by a route change
+
+    # Validity checks - Datagram
+    # Response is ignored if it is not from RIP port
+    # Check datagram source address is from valid neighbour, source of datagram must be on a directly-connected network
+    # Check response is from one of the routers own addresses
+    # Ignore if a router processes its own output as a new input
+
+    # Validity checks - RTEs (entry)
+    # Check if destination address valid - unicast, not net 0 or 127
+    # Check if metric valid - Must be between 1 and 16 (inclusive)
+
+    # Check if explicit route for destination address
+
+    # First run loop to wait for packets to be received
+    packet_table = table
+    read, write, err = select.select(sockets, [], [], timeout)
+    if len(read) > 0:
+        for i in read:
+            rec_packet_raw = i.recvfrom(1023)
+            message_packet = rec_packet_raw[0].decode('ascii')
+            # address_packet = rec_packet_raw[1]
+            valid_header = check_packet_header(message_packet)
+            valid_entry = check_packet_entry(message_packet)
+            if valid_header and valid_entry:
+                packet_table = update_routing_table(table, message_packet)
+            else:
+                print('Dropped invalid packet')
+    return packet_table
+
 
 
 def main():
