@@ -5,6 +5,7 @@ import socket
 import json
 import select
 import sys
+from copy import deepcopy
 
 inputPorts = []
 outputPorts = []
@@ -152,28 +153,41 @@ def update_routing_table(table, packet):
     # Compare result distance with current entry in table
     # If distance D is smaller than current distance update table entry to have new metric 'D'
     # If G' is the router from which the existing router came, then use new metric even if it is larger than the old one
-    current = router_id
+    current = packet['Header'][2]
     neighbours = []
     for entry in packet['Entry']:
         neighbours.append(entry[0])
 
     for neighbour in range(len(neighbours)):
-        if neighbours[neighbour] == router_id:
+        n = neighbours[neighbour]
+        if n == router_id:
             for entry in range(len(packet['Entry'])):
                 if packet['Entry'][entry][0] == router_id:
-                    table[current] = [packet['Entry'][entry][1], current, False, 0, 0]  # Used new metric even if it is larger than the old one
+                    if packet['Entry'][neighbour][1] < 16:
+                        table[current] = [packet['Entry'][entry][1], current, False, 0, 0]  # Used new metric even if it is larger than the old one
         else:
             cost = min(packet['Entry'][neighbour][1] + table[current][0], INFINITY)  # Adding the cost associated with neighbour
-            if cost < table[current][0]:  # Compare result distance with current entry in the table
-                table[current][0] = cost  # Since distance is smaller than current distance, new metric is the distance
-            else:
-                continue
+            if n not in table.keys():
+                if cost >= 16:
+                    continue
+                else:
+                    table[n] = [cost, current, False, 0, 0]
+            elif current == table[n][1]:
+                if table[n][0] == 16:
+                    continue
+                else:
+                    table[n] = [cost, current, False, 0, 0]
+            elif cost < table[n][0]:  # Compare result distance with current entry in the table
+                table[n][0] = cost  # Since distance is smaller than current distance, new metric is the distance
+                table[n][1] = current
     return table
 
 
 def send_packet(table):
     """Sending the UDP datagrams to neighbours"""
     for outputPort in outputPorts:
+        table_copy = deepcopy(table)
+        poison_table = split_horizon(table_copy, outputPort)
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.sendto(json.dumps(create_packet(table)).encode('ascii'), ("127.0.0.1", int(outputPort)))
     print("Packet sent successfully!")
@@ -207,9 +221,10 @@ def response_messages(sockets, timeout, table):
             rec_packet_raw = i.recvfrom(1023)
             message_packet = rec_packet_raw[0].decode('ascii')
             # address_packet = rec_packet_raw[1]
-            message_packet_dict = json.loads(message_packet) # Convert string to dictionary
+            message_packet_dict = json.loads(message_packet)  # Convert string to dictionary
             valid_header = check_packet_header(message_packet_dict)
             valid_entry = check_packet_entry(message_packet_dict)
+            print('Packet Received')
             if valid_header and valid_entry:
                 packet_table = update_routing_table(table, message_packet_dict)
             else:
@@ -217,22 +232,22 @@ def response_messages(sockets, timeout, table):
     return packet_table
 
 
-def update_timer_table(main_table, timer, random_timer):
-    """Updates the table and the timer and sends the packets when the required conditions are met"""
-    if timer == random_timer: # Waits for a random interval of 30+/-5 seconds and then sends a packet while resetting the timer
-        send_packet(main_table)
-        timer = 0
-    for id in main_table.keys():
-        if main_table[id][3] >= TIMEOUT: # Checks if the timer exceeds the timeout value
-            main_table[id][0] = INFINITY # Sets metric to infinity
-            main_table[id][2] = True # Sets flag to true
-        else:
-            main_table[id][3] += 1 # Timer goes up by 1
-
-        if main_table[id][2]: # Checks if the flag is true, and if yes increments the garbage collection
-            main_table[id][4] += GARBAGE_COLLECTION
-            if main_table[id][4] >= GARBAGE_TIMER:
-                del main_table[id]
+# def update_timer_table(main_table, timer, random_timer):
+#     """Updates the table and the timer and sends the packets when the required conditions are met"""
+#     if timer == random_timer:  # Waits for a random interval of 30+/-5 seconds and then sends a packet while resetting the timer
+#         send_packet(main_table)
+#         timer = 0
+#     for id in sorted(main_table.keys()):
+#         if main_table[id][3] >= TIMEOUT:  # Checks if the timer exceeds the timeout value
+#             main_table[id][0] = INFINITY  # Sets metric to infinity
+#             main_table[id][2] = True  # Sets flag to true
+#         else:
+#             main_table[id][3] += 1  # Timer goes up by 1
+#
+#         if main_table[id][2]:  # Checks if the flag is true, and if yes increments the garbage collection
+#             main_table[id][4] += GARBAGE_COLLECTION
+#             if main_table[id][4] >= GARBAGE_TIMER:
+#                 del main_table[id]
 
 
 def print_routing_table(table):
@@ -264,23 +279,21 @@ def main():
         timer = timer + 1
         print_routing_table(main_table)
 
-        update_timer_table(main_table, timer, random_timer)
-        # if timer == random_timer:  # Waits for a random interval of 30+/-5 seconds and then sends a packet while resetting the timer
-        #     send_packet(main_table)
-        #     timer = 0
-        #
-        # for id in sorted(main_table.keys()):
-        #
-        #     if main_table[id][3] >= TIMEOUT:  # Checks if the timer exceeds the timeout value
-        #         main_table[id][0] = INFINITY  # Sets metric to infinity
-        #         main_table[id][2] = True  # Sets flag to true
-        #     else:
-        #         main_table[id][3] += 1  # Timer goes up by 1
-        #
-        #     if main_table[id][2]:  # Checks if the flag is true, and if yes increments the garbage collection
-        #         main_table[id][4] += GARBAGE_COLLECTION
-        #         if main_table[id][4] >= GARBAGE_TIMER:
-        #             del main_table[id]
+        # update_timer_table(main_table, timer, random_timer)
+        if timer == random_timer:  # Waits for a random interval of 30+/-5 seconds and then sends a packet while resetting the timer
+            send_packet(main_table)
+            timer = 0
+        for id in sorted(main_table.keys()):
+            if main_table[id][3] >= TIMEOUT:  # Checks if the timer exceeds the timeout value
+                main_table[id][0] = INFINITY  # Sets metric to infinity
+                main_table[id][2] = True  # Sets flag to true
+            else:
+                main_table[id][3] += 1  # Timer goes up by 1
+
+            if main_table[id][2]:  # Checks if the flag is true, and if yes increments the garbage collection
+                main_table[id][4] += GARBAGE_COLLECTION
+                if main_table[id][4] >= GARBAGE_TIMER:
+                    del main_table[id]
 
         main_table = response_messages(sockets, 1, main_table)
 
