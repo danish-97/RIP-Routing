@@ -76,7 +76,7 @@ def open_file():
 
 
 def create_packet(table):
-    """The header and packet of the RIP packet"""
+    """The header and entry of the RIP packet"""
     command = 2
     version = 2
     zeroField = router_id
@@ -147,7 +147,7 @@ def update_routing_table(table, packet):
     """Implement a loop which create a packet for each router and sends its information to the neighbouring routers"""
 
     # send routing information (destination and distance to the destination) to neighbour
-
+    #
     # Check information from neighbour 'G'
     # Add cost associated with G, call result 'D'
     # Compare result distance with current entry in table
@@ -205,19 +205,19 @@ def response_messages(sockets, timeout, table):
     # - Response to specific query
     # - Regular update
     # - Triggered update caused by a route change
-
+    #
     # Validity checks - Datagram
     # Response is ignored if it is not from RIP port
     # Check datagram source address is from valid neighbour, source of datagram must be on a directly-connected network
     # Check response is from one of the routers own addresses
     # Ignore if a router processes its own output as a new input
-
+    #
     # Validity checks - RTEs (entry)
     # Check if destination address valid - unicast, not net 0 or 127
     # Check if metric valid - Must be between 1 and 16 (inclusive)
-
+    #
     # Check if explicit route for destination address
-
+    #
     # First run loop to wait for packets to be received
     packet_table = table
     read, write, err = select.select(sockets, [], [], timeout)
