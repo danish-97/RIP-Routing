@@ -10,9 +10,9 @@ from copy import deepcopy
 inputPorts = []
 outputPorts = []
 INFINITY = 16
-TIMEOUT = 180
+TIMEOUT = 20
 GARBAGE_COLLECTION = 1
-GARBAGE_TIMER = 120
+GARBAGE_TIMER = 5
 
 
 def open_file():
@@ -157,6 +157,11 @@ def update_routing_table(table, packet):
     neighbours = []
     for entry in packet['Entry']:
         neighbours.append(entry[0])
+
+    if current not in table.keys(): # Checks if the router is present in the table and if not adds it
+        for m in range(len(packet['Entry'])):
+            if packet['Entry'][m][1] == router_id:
+                table[current] = [packet['Entry'][m][0], current, False, 0, 0]
 
     for neighbour in range(len(neighbours)):
         n = neighbours[neighbour]
