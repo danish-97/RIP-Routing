@@ -15,15 +15,15 @@ from copy import deepcopy
 inputPorts = []
 outputPorts = []
 INFINITY = 16
-TIMEOUT = 20
+TIMEOUT = 30
 GARBAGE_TIMER = 1
-GARBAGE_TIMEOUT = 5
+GARBAGE_TIMEOUT = 20
 
 
 def main():
     """The main function of the file which runs the program"""
     timer = 0
-    random_timer = random.randint(3, 9)  # Offsetting the 30-second timer by a random interval (30 +- 5)
+    random_timer = random.randint(1, 10)  # Offsetting the 30-second timer by a random interval (30 +- 5)
     # Parses through the config file and formats the data into a table
     main_table = open_file()
 
@@ -42,10 +42,10 @@ def main():
         routing.print_routing_table()
 
         # Main part of the function which sends packets and increments the timer values according to the conditions specified
-        if timer == random_timer:  # Waits for a random interval of 30+/-5 seconds and then sends a packet while resetting the timer
+        if timer == random_timer:  # Waits for a random interval of 5+/-5 seconds and then sends a packet while resetting the timer
             newPacket.send_packet(packet)
             timer = 0
-        for id in sorted(main_table.keys()): # Iterates through the routers in the table
+        for id in sorted(main_table.keys()):  # Iterates through the routers in the table
             if main_table[id][3] >= TIMEOUT:  # Checks if the timer exceeds the timeout value
                 main_table[id][0] = INFINITY  # Sets metric to infinity
                 main_table[id][2] = True  # Sets flag to true
@@ -54,7 +54,8 @@ def main():
 
             if main_table[id][2]:  # Checks if the flag is true, and if yes increments the garbage timer
                 main_table[id][4] += GARBAGE_TIMER
-                if main_table[id][4] >= GARBAGE_TIMEOUT: # If garbage timer value reaches max, then removes the route from the table
+                if main_table[id][
+                    4] >= GARBAGE_TIMEOUT:  # If garbage timer value reaches max, then removes the route from the table
                     del main_table[id]
 
         main_table = routing.response_messages(sockets, timeout=1)
@@ -65,6 +66,7 @@ def main():
 
 class Socket:
     """ Class that handles the functions of the sockets"""
+
     def __init__(self, input_ports, socket_table):
         self.socket_table = socket_table
         self.input_ports = input_ports
@@ -95,6 +97,7 @@ class Socket:
 
 class Packet:
     """Class that handles the functions of the packets"""
+
     def __init__(self, table):
         self.table = table
 
@@ -105,18 +108,19 @@ class Packet:
         zeroField = router_id
         entry = []
         header = [command, version, zeroField]
-        for i in self.table.keys(): # Iterates through the routers and adds the costs and destination values to each in a tuple
+        for i in self.table.keys():  # Iterates through the routers and adds the costs and destination values to each in a tuple
             cost = self.table[i][0]
             entry.append((i, cost))
-        packet = {"Header": header, "Entry": entry} # Creates a dictionary called packet with header and entry as keys
+        packet = {"Header": header, "Entry": entry}  # Creates a dictionary called packet with header and entry as keys
         return packet
 
     def send_packet(self, packet):
         """Sending the UDP datagrams to neighbours"""
-        for outputPort in outputPorts: # iterates through the output ports, opens a socket for each and sends a new packet
+        for outputPort in outputPorts:  # iterates through the output ports, opens a socket for each and sends a new packet
             table_copy = deepcopy(self.table)
             routing = Routing(table_copy, packet)
-            poison_table = routing.split_horizon(outputPort) # creates a table using the split horizon function from the router class
+            poison_table = routing.split_horizon(
+                outputPort)  # creates a table using the split horizon function from the router class
             self.table = poison_table
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.sendto(json.dumps(self.create_packet()).encode('ascii'), ("127.0.0.1", int(outputPort)))
@@ -125,6 +129,7 @@ class Packet:
 
 class Routing:
     """Class that handles the functions for routing"""
+
     def __init__(self, table, packet):
         self.table = table
         self.packet = packet
@@ -149,39 +154,41 @@ class Routing:
         """
         current = self.packet['Header'][2]
         neighbours = []
-        for entry in self.packet['Entry']: # Adds the destinations of the routers into a list 'neighbours'
+        for entry in self.packet['Entry']:  # Adds the destinations of the routers into a list 'neighbours'
             neighbours.append(entry[0])
 
         if current not in self.table.keys():  # Checks if the router is present in the table and if not adds it
             for entries in range(len(self.packet['Entry'])):
-                if self.packet['Entry'][entries][1] == router_id:
-                    self.table[current] = [self.packet['Entry'][entries][0], current, False, 0, 0]
+                if self.packet['Entry'][entries][0] == router_id:
+                    self.table[current] = [self.packet['Entry'][entries][1], current, False, 0, 0]
         else:
-            for neighbour in range(len(neighbours)): # iterates through the list of destinations
+            for neighbour in range(len(neighbours)):  # iterates through the list of destinations
                 n = neighbours[neighbour]
-
-                if n == router_id: # checks if the destination is equal to the current router and if yes adds the router to the table
+                if n == router_id:  # checks if the destination is equal to the current router and if yes adds the router to the table
                     for entry in range(len(self.packet['Entry'])):
                         if self.packet['Entry'][entry][0] == router_id:
-                            if self.packet['Entry'][neighbour][1] < 16: # Verifies that the cost is not 16
-                                self.table[current] = [self.packet['Entry'][entry][1], current, False, 0, 0] # Used new metric even if it is larger than the old one
+                            if self.packet['Entry'][neighbour][1] < 16:  # Verifies that the cost is not 16
+                                self.table[current] = [self.packet['Entry'][entry][1], current, False, 0,
+                                                       0]  # Used new metric even if it is larger than the old one
                 else:
-                    cost = min(self.packet['Entry'][neighbour][1] + self.table[current][0], INFINITY) # Adding the cost associated with neighbour
+                    cost = min(self.packet['Entry'][neighbour][1] + self.table[current][0],
+                               INFINITY)  # Adding the cost associated with neighbour
 
-                    if n not in self.table.keys(): # check if the destination router is not in the table and if not then adds it
+                    if n not in self.table.keys():  # check if the destination router is not in the table and if not then adds it
                         if cost >= 16:
                             continue
                         else:
                             self.table[n] = [cost, current, False, 0, 0]
 
-                    elif current == self.table[n][1]: # checks if current router is equal to the next hop and if yes then changes the cost
+                    elif current == self.table[n][1]:  # checks if current router is equal to the next hop and if yes then changes the cost
                         if self.table[n][0] == 16:
                             continue
                         else:
                             self.table[n] = [cost, current, False, 0, 0]
 
                     elif cost < self.table[n][0]:  # Compare result distance with current entry in the table
-                        self.table[n][0] = cost  # Since distance is smaller than current distance, new metric is the distance
+                        self.table[n][
+                            0] = cost  # Since distance is smaller than current distance, new metric is the distance
                         self.table[n][1] = current
         return self.table
 
@@ -208,17 +215,17 @@ class Routing:
         """
 
         packet_table = self.table
-        read, write, err = select.select(sockets, [], [], timeout) # Listens to all input ports simultaneously
+        read, write, err = select.select(sockets, [], [], timeout)  # Listens to all input ports simultaneously
         if len(read) > 0:
             for i in read:
-                rec_packet_raw = i.recvfrom(1023) # Receives a packet with buffer size 1023
-                message_packet = rec_packet_raw[0].decode('ascii') # Decodes the received packet
+                rec_packet_raw = i.recvfrom(1023)  # Receives a packet with buffer size 1023
+                message_packet = rec_packet_raw[0].decode('ascii')  # Decodes the received packet
                 message_packet_dict = json.loads(message_packet)  # Convert string to dictionary
                 self.packet = message_packet_dict
                 valid_header = check_packet_header(message_packet_dict)
                 valid_entry = check_packet_entry(message_packet_dict)
-                print('Packet Received: ' + message_packet_dict)
-                if valid_header and valid_entry: # If passes the validity checks then the routing table updates
+                print('Packet Received')
+                if valid_header and valid_entry:  # If passes the validity checks then the routing table updates
                     packet_table = self.update_routing_table()
                 else:
                     print('Dropped invalid packet')
@@ -246,8 +253,8 @@ def open_file():
     if len(arguments) != 2:
         print("Invalid number of arguments.\n Please enter in format: python3 routing.py config_file_(number)")
         exit()
-    router_id = int(filename[12])
-    with open(filename) as f: # Opens config file and formats it
+    router_id = int(filename[12:])
+    with open(filename) as f:  # Opens config file and formats it
         contents = f.readlines()
         routerIdRaw = contents[0]
         inputPortsRaw = contents[1]
@@ -255,9 +262,10 @@ def open_file():
         routerIdList = routerIdRaw.strip().split(", ")
         inputPortsList = inputPortsRaw.strip().split(", ")
         outputPortsList = outputPortsRaw.strip().split(", ")
-        table = {} # Creates a table as a dictionary
+        table = {}  # Creates a table as a dictionary
 
-        if 1 > int(routerIdList[1]) or int(routerIdList[1]) > 64000: # Verifies that the router id is within the specified range
+        if 1 > int(routerIdList[1]) or int(
+                routerIdList[1]) > 64000:  # Verifies that the router id is within the specified range
             print("ERROR: Router-id must be between 1 and 64000")
             exit()
         for i in range(1, len(inputPortsList)):
@@ -268,7 +276,7 @@ def open_file():
             else:
                 inputPorts.append(inputPortsList[i])
 
-        if len(inputPorts) > len(set(inputPorts)): # Verifies that the input ports are all unique
+        if len(inputPorts) > len(set(inputPorts)):  # Verifies that the input ports are all unique
             print("ERROR: Every input port number must be unique")
             exit()
 
@@ -287,7 +295,7 @@ def open_file():
             # output[1] = metric/cost
             # output[2] = destination id
 
-        if len(outputPorts) > len(set(outputPorts)): # Verifies that the output ports are unique
+        if len(outputPorts) > len(set(outputPorts)):  # Verifies that the output ports are unique
             print("ERROR: Every output port number must be unique")
             exit()
 
@@ -314,9 +322,10 @@ def check_packet_entry(packet):
     """Verifies that the packet entry format is as it should be"""
     checkEntry = True
     for entry in packet['Entry']:
-        if int(entry[1]) > 16: # checks if cost is greater than 16
+        if int(entry[1]) > 16:  # checks if cost is greater than 16
             checkEntry = False
-        elif int(entry[0]) < 1 or int(entry[0]) > 64000: # Checks if the destination ports are within the specified range
+        elif int(entry[0]) < 1 or int(
+                entry[0]) > 64000:  # Checks if the destination ports are within the specified range
             checkEntry = False
     return checkEntry
 
