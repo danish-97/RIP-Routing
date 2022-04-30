@@ -1,0 +1,3 @@
+router-id, 11
+input-ports, 3101, 3102
+output-ports, 3001-1-10, 3201-1-12
