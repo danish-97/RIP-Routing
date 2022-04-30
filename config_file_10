@@ -1,0 +1,3 @@
+router-id, 1
+input-ports, 2201, 3301
+output-ports, 1102-1-2, 1103-3-3
