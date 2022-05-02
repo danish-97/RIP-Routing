@@ -211,15 +211,17 @@ def open_file():
     if len(arguments) != 2:
         print("Invalid number of arguments.\n Please enter in format: python3 routing.py config_file_(number)")
         exit()
-    router_id = int(filename[12:])
     with open(filename) as f:  # Opens config file and formats it
         contents = f.readlines()
         routerIdRaw = contents[0]
         inputPortsRaw = contents[1]
         outputPortsRaw = contents[2]
+
         routerIdList = routerIdRaw.strip().split(", ")
         inputPortsList = inputPortsRaw.strip().split(", ")
         outputPortsList = outputPortsRaw.strip().split(", ")
+
+        router_id = int(routerIdList[1])
         table = {}  # Creates a table as a dictionary
 
         if 1 > int(routerIdList[1]) or int(
@@ -282,8 +284,7 @@ def check_packet_entry(packet):
     for entry in packet['Entry']:
         if int(entry[1]) > 16:  # checks if cost is greater than 16
             checkEntry = False
-        elif int(entry[0]) < 1 or int(
-                entry[0]) > 64000:  # Checks if the destination ports are within the specified range
+        elif int(entry[0]) < 1 or int(entry[0]) > 64000:  # Checks if the destination ports are within the specified range
             checkEntry = False
     return checkEntry
 
@@ -299,8 +300,7 @@ def update_timers(main_table):
 
         if main_table[id][2]:  # Checks if the flag is true, and if yes increments the garbage timer
             main_table[id][4] += GARBAGE_TIMER
-            if main_table[id][
-                4] >= GARBAGE_TIMEOUT:  # If garbage timer value reaches max, then removes the route from the table
+            if main_table[id][4] >= GARBAGE_TIMEOUT:  # If garbage timer value reaches max, then removes the route from the table
                 del main_table[id]
 
 
