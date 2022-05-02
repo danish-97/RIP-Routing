@@ -20,43 +20,6 @@ GARBAGE_TIMER = 1
 GARBAGE_TIMEOUT = 20
 
 
-def main():
-    """The main function of the file which runs the program"""
-    timer = 0
-    random_timer = random.randint(1, 10)  # Offsetting the 30-second timer by a random interval (30 +- 5)
-    # Parses through the config file and formats the data into a table
-    main_table = open_file()
-
-    # Open the sockets for input ports and gets them ready for receiving packets
-    newSocket = Socket(inputPorts, main_table)
-    sockets = newSocket.open_socket()
-
-    while True:
-        timer = timer + 1
-        # Initialises the packet class and creates a new packet
-        newPacket = Packet(main_table)
-        packet = newPacket.create_packet()
-
-        # Initialises the routing class and prints the routing table every timer tick
-        routing = Routing(main_table, packet)
-        routing.print_routing_table()
-
-        # Main part of the function which sends packets and increments the timer values according to the conditions specified
-        if timer == random_timer:  # Waits for a random interval of 5+/-5 seconds and then sends a packet while resetting the timer
-            newPacket.send_packet(packet)
-            timer = 0
-
-        update_timers(main_table)
-
-
-        main_table = routing.response_messages(sockets, timeout=1)
-
-    # Code never reaches this part, but it is there to show that the sockets should close when they are not being used
-    newSocket.close_socket(main_table)
-
-
-
-
 class Socket:
     """ Class that handles the functions of the sockets"""
 
@@ -134,7 +97,13 @@ class Routing:
                 info[0] = INFINITY
         return self.table
 
-
+    def update_entry_cost(self, current_router):
+        """Updates the cost of the entry of the packet"""
+        for entry in range(len(self.packet['Entry'])):
+            if self.packet['Entry'][entry][0] == router_id:
+                if self.packet['Entry'][entry][1] < 16:  # Verifies that the cost is not 16
+                    # Used new metric even if it is larger than the old one
+                    self.table[current_router] = [self.packet['Entry'][entry][1], current_router, False, 0, 0]
 
     def update_routing_table(self):
         """
@@ -152,28 +121,20 @@ class Routing:
         for entry in self.packet['Entry']:  # Adds the destinations of the routers into a list 'neighbours'
             neighbours.append(entry[0])
 
-
         if current not in self.table.keys():  # Checks if the router is present in the table and if not adds it
-            for entries in range(len(self.packet['Entry'])):
-                if self.packet['Entry'][entries][0] == router_id:
-                    self.table[current] = [self.packet['Entry'][entries][1], current, False, 0, 0]
-
+            self.update_entry_cost(current)
 
         for neighbour in range(len(neighbours)):  # iterates through the list of destinations
             n = neighbours[neighbour]
             if n == router_id:  # checks if the destination is equal to the current router and if yes adds the router to the table
-                for entry in range(len(self.packet['Entry'])):
-                    if self.packet['Entry'][entry][0] == router_id:
-                        if self.packet['Entry'][neighbour][1] < 16:  # Verifies that the cost is not 16
-                                self.table[current] = [self.packet['Entry'][entry][1], current, False, 0,
-                                                       0]  # Used new metric even if it is larger than the old one
+                self.update_entry_cost(current)
             else:
                 cost = min(self.packet['Entry'][neighbour][1] + self.table[current][0],
-                               INFINITY)  # Adding the cost associated with neighbour
+                           INFINITY)  # Adding the cost associated with neighbour
 
                 if n not in self.table.keys():  # check if the destination router is not in the table and if not then adds it
                     if cost >= 16:
-                         continue
+                        continue
                     else:
                         self.table[n] = [cost, current, False, 0, 0]
 
@@ -185,12 +146,9 @@ class Routing:
 
                 elif cost < self.table[n][0]:  # Compare result distance with current entry in the table
                     self.table[n][
-                            0] = cost  # Since distance is smaller than current distance, new metric is the distance
+                        0] = cost  # Since distance is smaller than current distance, new metric is the distance
                     self.table[n][1] = current
         return self.table
-
-
-
 
     def response_messages(self, sockets, timeout):
         """Processes the response messages for the packet received
@@ -236,7 +194,7 @@ class Routing:
         print("==" * 40)
         print("                      Routing table for router {}".format(router_id))
         print("Destination      Metric      Next Hop      Timer      Garbage Timer")
-        for key, data in self.table.items():
+        for key, data in sorted(self.table.items()):
             print(
                 "{:^12d} {:^14d} {:^12d} {:^12d} {:^14d}".format(key, data[0], data[1], data[3], data[4]))
         print("==" * 40)
@@ -345,4 +303,43 @@ def update_timers(main_table):
                 4] >= GARBAGE_TIMEOUT:  # If garbage timer value reaches max, then removes the route from the table
                 del main_table[id]
 
-main()
+
+def main(main_table, new_socket):
+    """The main function of the file which runs the program"""
+    timer = 0
+    random_timer = random.randint(1, 10)  # Offsetting the 30-second timer by a random interval (30 +- 5)
+
+    sockets = new_socket.open_socket()
+
+    while True:
+        timer = timer + 1
+        # Initialises the packet class and creates a new packet
+        newPacket = Packet(main_table)
+        packet = newPacket.create_packet()
+
+        # Initialises the routing class and prints the routing table every timer tick
+        routing = Routing(main_table, packet)
+        routing.print_routing_table()
+
+        # Main part of the function which sends packets and increments the timer values according to the conditions specified
+        if timer == random_timer:  # Waits for a random interval of 5+/-5 seconds and then sends a packet while resetting the timer
+            newPacket.send_packet(packet)
+            timer = 0
+
+        update_timers(main_table)
+
+        main_table = routing.response_messages(sockets, timeout=1)
+
+
+if __name__ == "__main__":
+    # Parses through the config file and formats the data into a table
+    file = open_file()
+
+    # Open the sockets for input ports and gets them ready for receiving packets
+    sockets = Socket(inputPorts, file)
+    try:
+        main(file, sockets)
+    except (KeyboardInterrupt, SystemExit):
+        sockets.close_socket() # Closes all the sockets of the router
+        print("\nRouter Shut Down\n")
+        exit()
