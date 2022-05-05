@@ -207,11 +207,12 @@ def open_file():
     """Reads the content of the file and formats it into a table"""
     global router_id
     arguments = sys.argv
-    filename = arguments[1]
-    if len(arguments) != 2:
-        print("Invalid number of arguments.\n Please enter in format: python3 routing.py config_file_(number)")
+    directory = arguments[1]
+    filename = arguments[2]
+    if len(arguments) < 2:
+        print("Invalid number of arguments.\n Please enter in format: python3 rip_routing.py (filename) config_file_(number)")
         exit()
-    with open(filename) as f:  # Opens config file and formats it
+    with open(directory + "/" + filename) as f:  # Opens config file and formats it
         contents = f.readlines()
         routerIdRaw = contents[0]
         inputPortsRaw = contents[1]
